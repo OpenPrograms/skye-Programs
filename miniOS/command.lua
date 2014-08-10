@@ -70,58 +70,19 @@ local function outputFile(file, paged)
   else print(buffer) end
 end
 
-local function dir(folder)
-	--we will have to get the current dir later (we will need fs.resolve!)
-	folder = "/" .. (folder or "")
-	--is it a directory?
-	if not fs.isDirectory(folder) then print("No such folder.") return end
-	--if it is we start...
-	local output = ""
-	--put the list of files into a massive string
-	for file in filesystem.list(folder) do output = output .. file .. "\n" end
-	--get rid of the last newline
-	output = output:sub(0, -2)
-	--we want the output to be paged
-	printPaged(output)
-end
-
 local function runline(line)
 	line = text.trim(line)
 	if line == "" then return true end
 	parts = text.tokenize(line)
 	command = string.lower(text.trim(parts[1]))
-	--blank commands
-	if command == "" then return true end
-	if command == nil then return true end
 	--drive selector
 	if #command == 2 then if string.sub(command, 2, 2) == ":" then filesystem.drive.setcurrent(string.sub(command, 1, 1)) return true end end
-	--external commands and programs
-	command = parts[1]
-	if filesystem.exists(command) then
-		if not filesystem.isDirectory(command) then
-			if text.endswith(command, ".lua") then runprog(command, parts) return true end
-			if text.endswith(command, ".bat") then runbat(command, parts) return true end
-			runprog(command, parts) return true
-		end
-	end
-	if filesystem.exists(command .. ".lua")  then
-		if not filesystem.isDirectory(command .. ".lua") then
-			runprog(command .. ".lua", parts)
-			return true
-		end
-	end
-	if filesystem.exists(command .. ".bat") then
-		if not filesystem.isDirectory(command .. ".bat") then
-			runbat(command .. ".bat", parts)
-			return true
-		end
-	end
 	--internal commands
 	if command == "exit" then history = {} return "exit" end
 	if command == "cls" then term.clear() return true end
 	if command == "ver" then print(_OSVERSION) return true end
 	if command == "mem" then print(math.floor(computer.totalMemory()/1024).."k RAM, "..math.floor(computer.freeMemory()/1024).."k Free") return true end
-	if command == "dir" then dir() return true end
+	if command == "dir" then for file in filesystem.list("/") do print(file) end return true end
 	if command == "intro" then intro() return true end
 	if command == "disks" then listdrives() return true end
 	if command == "discs" then listdrives() return true end
@@ -148,6 +109,29 @@ type --- Like echo, but outputs a file.
 more --- Like type, but the output is paged.
 copy --- Copies a file.
 move --- Moves a file.]]) print() return true end
+	if command == "" then return true end
+	if command == nil then return true end
+	--external commands and programs
+	command = parts[1]
+	if filesystem.exists(command) then
+		if not filesystem.isDirectory(command) then
+			if text.endswith(command, ".lua") then runprog(command, parts) return true end
+			if text.endswith(command, ".bat") then runbat(command, parts) return true end
+			runprog(command, parts) return true
+		end
+	end
+	if filesystem.exists(command .. ".lua")  then
+		if not filesystem.isDirectory(command .. ".lua") then
+			runprog(command .. ".lua", parts)
+			return true
+		end
+	end
+	if filesystem.exists(command .. ".bat") then
+		if not filesystem.isDirectory(command .. ".bat") then
+			runbat(command .. ".bat", parts)
+			return true
+		end
+	end
 	print("'" .. parts[1] .. "' is not an internal or external command, program or batch file.")
 	return false
 end
