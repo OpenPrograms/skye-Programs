@@ -1,11 +1,13 @@
+Use fixPath with dir
 pastebin port
 basic directory support
 resolution+other screen control command
 fix readkey echo
-advanced directory&path support. (paths like MS-DOS. with "/" and "\") (with unix option!)
+advanced directory&path support. (paths like MS-DOS. with "/" and "\") (with unix option!) make fixPath resolve paths using fs.resolve
 disk cloner + images (miniOS + openOS)
 move program starting function to kernel. Program Stack? (With arguments)
-os libary
+os library
+Environment variables (remember path!)
 tape drive?
 io implementation
 batch files
