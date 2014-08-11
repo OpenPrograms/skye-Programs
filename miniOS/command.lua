@@ -8,12 +8,18 @@ local tArgs={...}
 local continue
 if tArgs[1] == "-c" then continue = true table.remove(tArgs, 1) end
 
-local function intro() print(_OSVERSION .. " [".. math.floor(computer.totalMemory()/1024).."k RAM, at least "..math.floor(miniOS.freeMem/1024).."k Free]" .."\nCommand Interpreter By Skye M.\n") end 
+local function intro() print(_OSVERSION .. " [".. math.floor(computer.totalMemory()/1024).."k RAM, around "..math.floor(miniOS.freeMem/1024).."k Free]" .."\nCommand Interpreter By Skye M.\n") end 
 if not continue then intro() end
 
 local history = {}
 if miniOS.cmdHistory then history = miniOS.cmdHistory end
 if miniOS.cmdDrive then fs.drive.setcurrent(miniOS.cmdDrive) end
+
+local function fixPath(path)
+	checkArg(1, path, "string")
+	if path:sub(1,1) == '"' and path:sub(-1,-1) == '"' then path = path:sub(2, -2) end
+	return path
+end
 
 local function runprog(file, parts)
 	miniOS.cmdHistory = history
@@ -34,7 +40,7 @@ end
 
 local function lables()
 	for letter, address in fs.drive.list() do
-		print(letter, component.invoke(address, "getLabel"))
+		print(letter, component.invoke(address, "getLabel") or "")
 	end
 end
 
@@ -85,6 +91,57 @@ local function dir(folder)
 	printPaged(output)
 end
 
+local function moveFile(from, to, force)
+	checkArg(1, from, "string")
+	checkArg(2, to, "string")
+	if fs.isDirectory(to) then
+		to = to .. "/" .. fs.name(from)
+	end
+	if fs.exists(to) then
+		if not force then
+			printErr("target file exists")
+			return
+		end
+		fs.remove(to)
+	end
+	local result, reason = fs.rename(from, to)
+	if not result then
+		error(reason or "unknown error", 0)
+	end
+end
+
+local function copyFile(from, to, force)
+	checkArg(1, from, "string")
+	checkArg(2, to, "string")
+	if fs.isDirectory(to) then
+		to = to .. "/" .. fs.name(from)
+	end
+	if fs.exists(to) then
+		if not force then
+			printErr("target file exists")
+			return
+		end
+		fs.remove(to)
+	end
+	local result, reason = fs.copy(from, to)
+	if not result then
+		error(reason or "unknown error", 0)
+	end
+end
+
+local function twoFileCommandHelper(run, parts)
+	if #parts >= 3 then
+		if parts[2] == "-f" then
+			table.remove(parts, 2)
+			run(fixPath(parts[2]), fixPath(parts[3]), true)
+			return true
+		else
+			run(fixPath(parts[2]), fixPath(parts[3]))
+			return true
+		end
+	else printErr("Bad Parameters!") return true end
+end
+
 local function runline(line)
 	line = text.trim(line)
 	if line == "" then return true end
@@ -121,16 +178,23 @@ local function runline(line)
 	if command == "cls" then term.clear() return true end
 	if command == "ver" then print(_OSVERSION) return true end
 	if command == "mem" then print(math.floor(computer.totalMemory()/1024).."k RAM, "..math.floor(computer.freeMemory()/1024).."k Free") return true end
-	if command == "dir" then dir() return true end
+	if command == "dir" then if parts[2] then dir(fixPath(parts[2])) else dir() end return true end
 	if command == "intro" then intro() return true end
 	if command == "disks" then listdrives() return true end
 	if command == "discs" then listdrives() return true end
 	if command == "drives" then listdrives() return true end
 	if command == "labels" then lables() return true end
-	if command == "label" then if parts[2] then label(parts) return true else print("Invalid Parameters") return false end end
-	if command == "type" then outputFile(parts[2]) return true end
-	if command == "more" then outputFile(parts[2], true) return true end
+	if command == "label" then if parts[2] then label(parts) return true else printErr("Invalid Parameters") return false end end
+	if command == "type" then outputFile(fixPath(parts[2])) return true end
+	if command == "more" then outputFile(fixPath(parts[2]), true) return true end
 	if command == "echo" then print(table.concat(parts, " ", 2)) return true end
+	if command == "print" then print(table.concat(parts, "\t", 2)) return true end
+	if command == "touch" then filesystem.close(filesystem.open(fixPath(parts[2]), 'w')) return true end
+	if command == "del" then filesystem.remove(fixPath(parts[2])) return true end
+	if command == "copy" then return twoFileCommandHelper(copyFile, parts) end
+	if command == "rename" then return twoFileCommandHelper(moveFile, parts) end
+	if command == "ren" then return twoFileCommandHelper(moveFile, parts) end
+	if command == "move" then return twoFileCommandHelper(moveFile, parts) end
 	if command == "cmds" then printPaged([[
 Internal Commands:
 exit --- Exit the command interpreter, Usually restarts it.
@@ -146,8 +210,11 @@ label -- Sets the label of a drive.
 echo --- Outputs its arguments.
 type --- Like echo, but outputs a file.
 more --- Like type, but the output is paged.
+touch -- Creates a file.
+del ---- Deletes a file.
 copy --- Copies a file.
-move --- Moves a file.]]) print() return true end
+move --- Moves a file.
+ren ---- Renames a file.]]) print() return true end
 	print("'" .. parts[1] .. "' is not an internal or external command, program or batch file.")
 	return false
 end

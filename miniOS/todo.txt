@@ -1,16 +1,12 @@
-use startswith() in shutdown
-use fs proxies in fs
+pastebin port
 basic directory support
-improve dir command
-file management commands
-resolution command
-handle bad programs in the kernel
+resolution+other screen control command
 fix readkey echo
+advanced directory&path support. (paths like MS-DOS. with "/" and "\") (with unix option!)
 disk cloner + images (miniOS + openOS)
-move program starting function to kernel. Improve with command / args to run when done.
+move program starting function to kernel. Program Stack? (With arguments)
 os libary
 tape drive?
-directory support. (paths like MS-DOS. with "/" and "\") (with unix option!)
 io implementation
 batch files
 check for bad drives in command
@@ -20,4 +16,3 @@ automatic clean up of unused drives
 run miniOS programs on openOS
 use coroutienes for interrupts
 make things look nicer
-swap internal / external commands?

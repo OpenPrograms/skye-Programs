@@ -1,5 +1,5 @@
-_G._OSNAME = "MiniOS"
-_G._OSVER = "0.5.9.5"
+_G._OSNAME = "miniOS"
+_G._OSVER = "0.5.9.7"
 _G._OSVERSION = _OSNAME .. " " .. _OSVER
 
 --component code
@@ -228,6 +228,10 @@ function text_code()
   
   -------------------------------------------------------------------------------
   
+  function text.endswith(s, send)
+    return #s >= #send and s:find(send, #s-#send+1, true) and true or false
+  end
+  
   return text
 end
 --event code
@@ -419,24 +423,44 @@ function event_code()
   
   return event
 end
---Simple filesystem code
+--filesystem code
 function fs_code()
   local fs = {}
   fs.drive = {}
-  fs.drive._map = { ["A"]=computer.getBootAddress(), ["X"]=computer.tmpAddress() } --Z: will be the unix style root
-  function fs.drive.toAddress(letter)
-    return fs.drive._map[letter]
+  --drive mapping table, initilized later
+  fs.drive._map = {}
+  --converts a drive letter into a proxy
+  function fs.drive.letterToProxy(letter)
+	return fs.drive._map[letter]
   end
+  --finds the proxy associated with the letter
+  function fs.drive.proxyToLetter(proxy)
+    for l,p in pairs(fs.drive._map) do
+	  if p == proxy then return l end
+	end
+	return nil
+  end
+  --maps a proxy to a letter
+  function fs.drive.mapProxy(letter, proxy)
+    fs.drive._map[letter] = proxy
+  end
+  --finds the address of a drive letter.
+  function fs.drive.toAddress(letter)
+    return fs.drive._map[letter].address
+  end
+  --finds the drive letter mapped to an address
   function fs.drive.toLetter(address)
-	for l,a in pairs(fs.drive._map) do
-	  if a == address then return l end
+	for l,p in pairs(fs.drive._map) do
+	  if p.address == address then return l end
 	end
 	return nil
   end
   function fs.drive.mapAddress(letter, address)
-    fs.drive._map[letter] = address
+	--print("mapAddress")
+    fs.drive._map[letter] = fs.proxy(address)
   end
   function fs.drive.autoMap(address) --returns the letter if mapped OR already mapped, false if not.
+	--print("autoMap")
 	--we get the address and see if it already is mapped...
 	local l = fs.drive.toLetter(address)
 	if l then return l end
@@ -450,19 +474,29 @@ function fs_code()
 		if l == "_" then return false end
 	end
   end
-  function fs.drive.list()
+  function fs.drive.listProxy()
     local t = fs.drive._map
-    local a = {}
-	for n in pairs(t) do table.insert(a, n) end
-    table.sort(a, f)
+    local p = {}
+	for n in pairs(t) do table.insert(p, n) end
+    table.sort(p, f)
     local i = 0      -- iterator variable
     local iter = function ()   -- iterator function
       i = i + 1
-      if a[i] == nil then return nil
-      else return a[i], t[a[i]]
+      if p[i] == nil then return nil
+      else return p[i], t[p[i]]
       end
     end
     return iter
+  end
+  function fs.drive.list()
+    local i = 0      -- iterator variable
+	local proxyIter = fs.drive.listProxy()
+    local iter = function ()   -- iterator function
+	  l, p = proxyIter()
+	  if not l then return nil end
+      return l, p.address
+    end
+	return iter
   end
   fs.drive._current = "A" --as the boot drive is A:
   function fs.drive.setcurrent(letter)
@@ -471,7 +505,7 @@ function fs_code()
     fs.drive._current = letter
 	end
   function fs.drive.getcurrent() return fs.drive._current end
-  function fs.invoke(method, ...) return component.invoke(fs.drive.toAddress(fs.drive._current), method, ...) end
+  function fs.invoke(method, ...) return fs.drive._map[fs.drive._current][method](...) end
   function fs.proxy(filter)
     checkArg(1, filter, "string")
     local address
@@ -499,6 +533,39 @@ function fs_code()
   function fs.close(handle) return fs.invoke("close", handle) end
   function fs.isDirectory(path) return fs.invoke("isDirectory", path) end
   function fs.exists(path) return fs.invoke("exists", path) end
+  function fs.remove(path) return fs.invoke("remove", path) end
+  function fs.copy(fromPath, toPath)
+    if fs.isDirectory(fromPath) then
+      return nil, "cannot copy folders"
+    end
+    local input, reason = fs.open(fromPath, "rb")
+    if not input then
+      return nil, reason
+    end
+    local output, reason = fs.open(toPath, "wb")
+    if not output then
+      fs.close(input)
+    return nil, reason
+    end
+    repeat
+      local buffer, reason = filesystem.read(input)
+      if not buffer and reason then
+        return nil, reason
+      elseif buffer then
+        local result, reason = filesystem.write(output, buffer)
+        if not result then
+          filesystem.close(input)
+          filesystem.close(output)
+          return nil, reason
+          end
+        end
+    until not buffer
+    filesystem.close(input)
+    filesystem.close(output)
+    return true
+  end
+  function fs.rename(path1, path2) return fs.invoke("rename", path1, path2) end
+  function fs.makeDirectory(path) return fs.invoke("makeDirectory", path) end
   function fs.list(path)
     local i = 0
     local t = fs.invoke("list", path)
@@ -517,12 +584,18 @@ function fs_code()
     end
   end
   local function onComponentRemoved(_, address, componentType)
-  if componentType == "filesystem" then
-    fs.drive.mapAddress(fs.drive.toLetter(address), nil)
+    if componentType == "filesystem" then
+      fs.drive.mapAddress(fs.drive.toLetter(address), nil)
+    end
   end
-end
   event.listen("component_added", onComponentAdded)
   event.listen("component_removed", onComponentRemoved)
+  local function driveInit()
+    local boot = fs.proxy(computer.getBootAddress())
+    local temp = fs.proxy(computer.tmpAddress())
+    fs.drive._map = { ["A"]=boot, ["X"]=temp } 
+  end
+  driveInit()
   --return the API
   return fs
 end
@@ -1043,13 +1116,12 @@ end
 
 print("Starting " .. _OSNAME .. "...\n")
 
+--clean up libs
+event_code, component_code, text_code, fs_code, terminal_code = nil, nil, nil, nil, nil
+
 --map the drives
 for address, componentType in component.list() do 
   if componentType == "filesystem" then filesystem.drive.autoMap(address) end
-end
-
-function text.endswith(s, send)
-return #s >= #send and s:find(send, #s-#send+1, true) and true or false
 end
 
 miniOS = {}
