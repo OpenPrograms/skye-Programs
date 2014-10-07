@@ -18,7 +18,7 @@ if miniOS.cmdDrive then fs.drive.setcurrent(miniOS.cmdDrive) end
 local function fixPath(path)
 	checkArg(1, path, "string")
 	if path:sub(1,1) == '"' and path:sub(-1,-1) == '"' then path = path:sub(2, -2) end
-	return path
+	return fs.resolve(path)
 end
 
 local function runprog(file, parts)
@@ -77,8 +77,7 @@ local function outputFile(file, paged)
 end
 
 local function dir(folder)
-	--we will have to get the current dir later (we will need fs.resolve!)
-	folder = "/" .. (folder or "")
+	folder = folder or fs.resolve("./")
 	--is it a directory?
 	if not fs.isDirectory(folder) then print("No such folder.") return end
 	--if it is we start...
@@ -89,6 +88,14 @@ local function dir(folder)
 	output = output:sub(0, -2)
 	--we want the output to be paged
 	printPaged(output)
+end
+
+local function cd(folder)
+	folder = folder or fs.resolve("./")
+	--is it a directory?
+	if not fs.isDirectory(folder) then print("No such folder.") return end
+	--if so, then change the path
+	fs.setWorkingDirectory(folder)
 end
 
 local function moveFile(from, to, force)
@@ -179,6 +186,7 @@ local function runline(line)
 	if command == "ver" then print(_OSVERSION) return true end
 	if command == "mem" then print(math.floor(computer.totalMemory()/1024).."k RAM, "..math.floor(computer.freeMemory()/1024).."k Free") return true end
 	if command == "dir" then if parts[2] then dir(fixPath(parts[2])) else dir() end return true end
+	if command == "cd" then if parts[2] then cd(fixPath(parts[2])) else print(fs.getWorkingDirectory()) end return true end
 	if command == "intro" then intro() return true end
 	if command == "disks" then listdrives() return true end
 	if command == "discs" then listdrives() return true end
@@ -202,6 +210,7 @@ cls ---- Clears the screen.
 ver ---- Outputs version information.
 mem ---- Outputs memory information.
 dir ---- Lists the files on the current disk.
+cd ----- Changes the current directory.
 cmds --- Lists the commands.
 intro -- Outputs the introduction message.
 drives - Lists the drives and their addresses.
@@ -232,7 +241,7 @@ end
 if shell.runline(table.concat(tArgs, " ")) == "exit" then return end
 
 while true do
-	term.write(filesystem.drive.getcurrent() ..">")
+	term.write(fs.getWorkingDirectory() ..">")
 	local line = term.read(history)
 	while #history > 10 do
 		table.remove(history, 1)

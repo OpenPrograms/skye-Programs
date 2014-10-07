@@ -1,5 +1,5 @@
 _G._OSNAME = "miniOS"
-_G._OSVER = "0.5.9.7"
+_G._OSVER = "0.5.9.8"
 _G._OSVERSION = _OSNAME .. " " .. _OSVER
 
 --component code
@@ -423,11 +423,70 @@ function event_code()
   
   return event
 end
+--os lib code
+function os_lib_code()
+local os = {}
+	local env = {
+	PATH=".",
+	TMPDIR="" --what would be a good default value?
+	}
+	function os.getenv(varname)
+	if varname == '#' then
+		return #env
+	elseif varname ~= nil then
+		return env[varname]
+	else
+		return env
+	end
+	end
+
+	function os.setenv(varname, value)
+		checkArg(1, varname, "string", "number")
+		if value == nil then
+			env[varname] = nil
+		else
+			local success, val = pcall(tostring, value)
+			if success then
+				env[varname] = val
+				return env[varname]
+			else
+				return nil, val
+			end
+		end
+	end
+
+return os
+end
 --filesystem code
 function fs_code()
+  local fileStream = {}
+  function fileStream:close()
+    if self.handle then
+      self.fs.close(self.handle)
+      self.handle = nil
+    end
+  end
+  function fileStream:read(n)
+    if not self.handle then
+      return nil, "file is closed"
+    end
+    return self.fs.read(self.handle, n or math.huge)
+  end
+  function fileStream:seek(whence, offset)
+    if not self.handle then
+      return nil, "file is closed"
+    end
+    return self.fs.seek(self.handle, whence, offset)
+  end
+  function fileStream:write(str)
+    if not self.handle then
+      return nil, "file is closed"
+    end
+    return self.fs.write(self.handle, str)
+  end
   local fs = {}
   fs.drive = {}
-  --drive mapping table, initilized later
+  --drive mapping table, initialized later
   fs.drive._map = {}
   --converts a drive letter into a proxy
   function fs.drive.letterToProxy(letter)
@@ -505,7 +564,28 @@ function fs_code()
     fs.drive._current = letter
 	end
   function fs.drive.getcurrent() return fs.drive._current end
-  function fs.invoke(method, ...) return fs.drive._map[fs.drive._current][method](...) end
+  --Splits a string into drive and path.
+  function fs.drive.drivePath(fullPath)
+  	checkArg(1, fullPath, "string")
+  	local drive
+  	local path
+  	if fullPath:sub(2, 2) == ":" then
+  	  drive = fullPath:sub(1,1):upper()
+  	  path = fullPath:sub(3)
+  	  if not drive:match("^%a+$") then error("bad argument #1 (invalid drive given)") end
+      if path:sub(1,1) ~= "/" then path = "/" .. path end
+  	else
+  	  path = fullPath
+  	  if path:sub(1,1) ~= "/" then path = "/" .. path end
+  	end
+  	return drive, path
+  end
+  function fs.findDrive(fullPath)
+    local l, p = fs.drive.drivePath(fullPath)
+	return l or fs.drive._current, p
+  end
+  function fs.drive.invoke(drive, method, ...) return fs.drive._map[drive][method](...) end
+  function fs.invoke(...) printErr("Warning! fs.invoke is now depreciated!") return fs.drive.invoke(fs.drive._current, ...) end
   function fs.proxy(filter)
     checkArg(1, filter, "string")
     local address
@@ -527,16 +607,46 @@ function fs_code()
     end
     return component.proxy(address)
   end
-  function fs.open(file, mode) return fs.invoke("open", file, mode or "r") end
-  function fs.write(handle, data) return fs.invoke("write", handle, data) end
-  function fs.read(handle, length) return fs.invoke("read", handle, length or math.huge) end
-  function fs.close(handle) return fs.invoke("close", handle) end
-  function fs.isDirectory(path) return fs.invoke("isDirectory", path) end
-  function fs.exists(path) return fs.invoke("exists", path) end
-  function fs.remove(path) return fs.invoke("remove", path) end
+  function fs.open(path, mode)
+    checkArg(1, path, "string")
+    mode = tostring(mode or "r")
+    checkArg(2, mode, "string")
+    assert(({r=true, rb=true, w=true, wb=true, a=true, ab=true})[mode],
+      "bad argument #2 (r[b], w[b] or a[b] expected, got " .. mode .. ")")
+	
+	local drive, rest = fs.drive.drivePath(path)
+	drive = drive or fs.drive.getcurrent()
+	if not (fs.exists(path) and not fs.isDirectory(path)) then
+		return nil, "file not found" end
+  
+    local handle, reason = fs.drive.invoke(drive, "open", rest, mode)
+    if not handle then
+      return nil, reason
+    end
+  
+    local stream = {letter = drive, fs = fs.drive.letterToProxy(drive), handle = handle}
+  
+    local function cleanup(self)
+      if not self.handle then return end
+      if fs.drive._map[self.letter] then pcall(proxy.close, self.handle) end
+    end
+    local metatable = {__index = fileStream,
+                       __gc = cleanup,
+                       __metatable = "filestream",
+					   __tostring = function(self) return self.handle end
+					   }
+    return setmetatable(stream, metatable)
+  end
+  function fs.write(handle, ...) return handle:write(...) end
+  function fs.read(handle, ...) return handle:read(...) end
+  function fs.seek(handle, ...) return handle:seek(...) end
+  function fs.close(handle, ...) return handle:close(...) end
+  function fs.isDirectory(path) local l, path = fs.findDrive(path) return fs.drive.invoke(l, "isDirectory", path) end
+  function fs.exists(path) local l, path = fs.findDrive(path) return fs.drive.invoke(l, "exists", path) end
+  function fs.remove(path) local l, path = fs.findDrive(path) return fs.drive.invoke(l, path) end
   function fs.copy(fromPath, toPath)
     if fs.isDirectory(fromPath) then
-      return nil, "cannot copy folders"
+      return nil, "cannot copy folders" --make able to copy folders later?
     end
     local input, reason = fs.open(fromPath, "rb")
     if not input then
@@ -544,31 +654,44 @@ function fs_code()
     end
     local output, reason = fs.open(toPath, "wb")
     if not output then
-      fs.close(input)
+      input:close()
     return nil, reason
     end
     repeat
-      local buffer, reason = filesystem.read(input)
+      local buffer, reason = input:read()
       if not buffer and reason then
         return nil, reason
       elseif buffer then
-        local result, reason = filesystem.write(output, buffer)
+        local result, reason = output:write(buffer)
         if not result then
-          filesystem.close(input)
-          filesystem.close(output)
+          input:close()
+          output:close()
           return nil, reason
           end
         end
     until not buffer
-    filesystem.close(input)
-    filesystem.close(output)
+    input:close()
+    output:close()
     return true
   end
-  function fs.rename(path1, path2) return fs.invoke("rename", path1, path2) end
-  function fs.makeDirectory(path) return fs.invoke("makeDirectory", path) end
+  function fs.rename(from, to)
+    checkArg(1, from, "string")
+	checkArg(2, to, "string")
+    local lf, fp = fs.findDrive(from)
+    local lt, tp = fs.findDrive(to)
+	if lf == lt then return fs.drive.invoke(lf, "rename", fp, tp) end
+	local result, reason = fs.copy(from, to)
+    if result then
+      return fs.remove(from)
+    else
+      return nil, reason
+    end
+  end
+  function fs.makeDirectory(path) l, path = fs.findDrive(path) return fs.drive.invoke(l,"makeDirectory", path) end
   function fs.list(path)
+	local l, path = fs.findDrive(path)
     local i = 0
-    local t = fs.invoke("list", path)
+    local t = fs.drive.invoke(l, "list", path)
 	local n = #t
     return function()
       i = i + 1
@@ -576,6 +699,132 @@ function fs_code()
 	  return nil
 	end
   end
+  function fs.name(path)
+    local parts = segments(path)
+    return parts[#parts]
+  end
+  function fs.segments(path)
+    path = path:gsub("\\", "/")
+    repeat local n; path, n = path:gsub("//", "/") until n == 0
+    local parts = {}
+    for part in path:gmatch("[^/]+") do
+      table.insert(parts, part)
+    end
+    local i = 1
+    while i <= #parts do
+      if parts[i] == "." then
+        table.remove(parts, i)
+      elseif parts[i] == ".." then
+        table.remove(parts, i)
+        i = i - 1
+        if i > 0 then
+          table.remove(parts, i)
+      else
+        i = 1
+        end
+      else
+        i = i + 1
+      end
+    end
+    return parts
+  end
+  function fs.canonical(path)
+    local result = table.concat(fs.segments(path), "/")
+    if unicode.sub(path, 1, 1) == "/" then
+      return "/" .. result
+    else
+      return result
+    end
+  end
+  function fs.concat(pathA, pathB, ...)
+    checkArg(1, pathA, "string")
+    local function concat(n, a, b, ...)
+      if not b then
+        return a
+      end
+      checkArg(n, b, "string")
+      return concat(n + 1, a .. "/" .. b, ...)
+    end
+    return fs.canonical(concat(2, pathA, pathB, ...))
+end
+  function fs.resolve(path, ext)
+    if ext then
+      checkArg(2, ext, "string")
+      local where = miniOS.findFile(path, ext)
+      if where then
+        return where
+      else
+        return nil, "file not found"
+      end
+    else
+      -- if unicode.sub(path, 1, 1) == "/" then
+        -- return fs.canonical(path)
+      -- else
+        -- return fs.concat(fs.getWorkingDirectory(), path)
+      -- end
+	  letter, path = fs.findDrive(path)
+	  return letter .. ":" .. fs.canonical(path)
+    end
+  end
+  function fs.getWorkingDirectory() return os.getenv("PWD") or fs.drive.getcurrent() .. ":/" end
+  function fs.setWorkingDirectory(dir)
+    checkArg(1, dir, "string")
+    dir = fs.canonical(dir) .. "/"
+    if dir == "//" then dir = "/" end
+    if fs.isDirectory(dir) then
+      os.setenv("PWD", dir)
+      return true
+    else
+      return nil, "not a directory"
+    end
+  end
+  function fs.findFile(name, ext)
+    checkArg(1, name, "string")
+    local function findIn(dir)
+      if dir:sub(1, 1) ~= "/" then
+        dir = shell.resolve(dir)
+      end
+      dir = fs.concat(fs.concat(dir, name), "..")
+      local name = fs.name(name)
+      local list = fs.list(dir)
+      if list then
+        local files = {}
+        for file in list do
+          files[file] = true
+        end
+        if ext and unicode.sub(name, -(1 + unicode.len(ext))) == "." .. ext then
+          -- Name already contains extension, prioritize.
+          if files[name] then
+            return true, fs.concat(dir, name)
+          end
+        elseif files[name] then
+          -- Check exact name.
+          return true, fs.concat(dir, name)
+        elseif ext then
+          -- Check name with automatially added extension.
+          local name = name .. "." .. ext
+          if files[name] then
+            return true, fs.concat(dir, name)
+          end
+        end
+      end
+      return false
+    end
+    if unicode.sub(name, 1, 1) == "/" then
+      local found, where = findIn("/")
+      if found then return where end
+    elseif unicode.sub(name, 1, 2) == "./" then
+      local found, where = findIn(shell.getWorkingDirectory())
+      if found then return where end
+    else
+      for path in string.gmatch(shell.getPath(), "[^:]+") do
+        local found, where = findIn(path)
+        if found then return where end
+      end
+    end
+    return false
+  end
+
   
   --handle inserted and removed filesystems
   local function onComponentAdded(_, address, componentType)
@@ -1100,6 +1349,7 @@ end
 event = event_code()
 component_code()
 text = text_code()
+os = os_lib_code()
 filesystem = fs_code()
 fs = filesystem
 keyboard = dofile("keyboard.lua")
