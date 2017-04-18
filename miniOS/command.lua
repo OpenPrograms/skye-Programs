@@ -78,7 +78,7 @@ end
 
 local function dir(folder)
 	--we will have to get the current dir later (we will need fs.resolve!)
-	folder = "/" .. (folder or "")
+	folder = (folder or "")
 	--is it a directory?
 	if not fs.isDirectory(folder) then print("No such folder.") return end
 	--if it is we start...
@@ -95,8 +95,9 @@ local function moveFile(from, to, force)
 	checkArg(1, from, "string")
 	checkArg(2, to, "string")
 	if fs.isDirectory(to) then
+	    if not fs.name then error("Need to specify name for destination!", 0) end
 		to = to .. "/" .. fs.name(from)
-	end
+    end
 	if fs.exists(to) then
 		if not force then
 			printErr("target file exists")
@@ -114,8 +115,9 @@ local function copyFile(from, to, force)
 	checkArg(1, from, "string")
 	checkArg(2, to, "string")
 	if fs.isDirectory(to) then
+	    if not fs.name then error("Need to specify name for destination!", 0) end
 		to = to .. "/" .. fs.name(from)
-	end
+    end
 	if fs.exists(to) then
 		if not force then
 			printErr("target file exists")
@@ -190,7 +192,7 @@ local function runline(line)
 	if command == "echo" then print(table.concat(parts, " ", 2)) return true end
 	if command == "print" then print(table.concat(parts, "\t", 2)) return true end
 	if command == "touch" then filesystem.close(filesystem.open(fixPath(parts[2]), 'w')) return true end
-	if command == "del" then filesystem.remove(fixPath(parts[2])) return true end
+	if command == "del" then if filesystem.remove(fixPath(parts[2])) then return true else error("Can't delete!",0) end end
 	if command == "copy" then return twoFileCommandHelper(copyFile, parts) end
 	if command == "rename" then return twoFileCommandHelper(moveFile, parts) end
 	if command == "ren" then return twoFileCommandHelper(moveFile, parts) end
@@ -237,5 +239,5 @@ while true do
 	while #history > 10 do
 		table.remove(history, 1)
 	end
-	if shell.runline(line) == "exit" then return end
+	if shell.runline(line) == "exit" then return true end
 end
