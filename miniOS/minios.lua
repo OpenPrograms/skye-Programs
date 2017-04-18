@@ -1,5 +1,5 @@
 _G._OSNAME = "miniOS"
-_G._OSVER = "0.5.9.7"
+_G._OSVER = "0.6"
 _G._OSVERSION = _OSNAME .. " " .. _OSVER
 
 --component code
@@ -503,7 +503,18 @@ function fs_code()
 	letter = letter:upper()
     if not fs.drive._map[letter] then error("Invalid Drive", 2) end
     fs.drive._current = letter
-	end
+  end
+  function fs.drive.drivepathSplit(mixed)
+    local drive = fs.drive._current
+    local path
+    if mixed:sub(2,2) == ":" then
+      drive = mixed:sub(1,1):upper()
+      path = mixed:sub(3)
+    else
+      path = mixed
+    end
+	return drive, path
+  end
   function fs.drive.getcurrent() return fs.drive._current end
   function fs.invoke(method, ...) return fs.drive._map[fs.drive._current][method](...) end
   function fs.proxy(filter)
@@ -527,13 +538,31 @@ function fs_code()
     end
     return component.proxy(address)
   end
-  function fs.open(file, mode) return fs.invoke("open", file, mode or "r") end
-  function fs.write(handle, data) return fs.invoke("write", handle, data) end
-  function fs.read(handle, length) return fs.invoke("read", handle, length or math.huge) end
-  function fs.close(handle) return fs.invoke("close", handle) end
-  function fs.isDirectory(path) return fs.invoke("isDirectory", path) end
-  function fs.exists(path) return fs.invoke("exists", path) end
-  function fs.remove(path) return fs.invoke("remove", path) end
+  function fs.open(file, mode)
+    local drive, handle, proxy
+    drive, path = fs.drive.drivepathSplit(file)
+	proxy = fs.drive.letterToProxy(drive)
+    handle = proxy.open(path, mode or 'r')
+    return {_handle = handle, _proxy = proxy}
+  end
+  function fs.write(handle, data) return handle._proxy.write(handle._handle, data) end
+  function fs.read(handle, length) return handle._proxy.read(handle._handle, length or math.huge) end
+  function fs.close(handle) return handle._proxy.close(handle._handle) end
+  function fs.isDirectory(path)
+    local drive
+    drive, path = fs.drive.drivepathSplit(path)
+    return fs.drive.letterToProxy(drive).isDirectory(path)
+  end
+  function fs.exists(path)
+    local drive
+    drive, path = fs.drive.drivepathSplit(path)
+    return fs.drive.letterToProxy(drive).exists(path)
+  end
+  function fs.remove(path)
+    local drive
+    drive, path = fs.drive.drivepathSplit(path)
+    return fs.drive.letterToProxy(drive).remove(path)
+  end
   function fs.copy(fromPath, toPath)
     if fs.isDirectory(fromPath) then
       return nil, "cannot copy folders"
@@ -564,11 +593,22 @@ function fs_code()
     filesystem.close(output)
     return true
   end
-  function fs.rename(path1, path2) return fs.invoke("rename", path1, path2) end
-  function fs.makeDirectory(path) return fs.invoke("makeDirectory", path) end
+  function fs.rename(path1, path2)
+    local drive
+    drive, path = fs.drive.drivepathSplit(path)
+    return fs.drive.letterToProxy(drive).rename(path1, path2)
+  end
+  function fs.makeDirectory(path)
+    local drive
+    drive, path = fs.drive.drivepathSplit(path)
+    return fs.drive.letterToProxy(drive).makeDirectory(path)
+  end
   function fs.list(path)
+    local drive
+    drive, path = fs.drive.drivepathSplit(path)
+
     local i = 0
-    local t = fs.invoke("list", path)
+    local t = fs.drive.letterToProxy(drive).list(path)
 	local n = #t
     return function()
       i = i + 1
@@ -1126,7 +1166,8 @@ end
 
 miniOS = {}
 local function interrupt(data)
-  if data[2] == "RUN" then miniOS.runfile(data[3], table.unpack(data[4])) end
+  --print("INTERRUPT!")
+  if data[2] == "RUN" then return miniOS.runfile(data[3], table.unpack(data[4])) end
 end
 local function runfile(file, ...)
   local program, reason = loadfile(file)
@@ -1135,7 +1176,7 @@ local function runfile(file, ...)
     if result[1] then
       return table.unpack(result, 2, result.n)
     else
-	  if type(result[2]) == "table" then if result[2][1] then if result[2][1] == "INTERRUPT" then interrupt(result[2]) return end end end
+	  if type(result[2]) == "table" then if result[2][1] then if result[2][1] == "INTERRUPT" then interrupt(result[2]) return true end end end
       error(result[2], 3)
     end
   else
@@ -1147,15 +1188,15 @@ local function kernelError()
   term.readKey()
 end
 function miniOS.runfile(...)
-  local _, err = pcall(runfile, ...)
-  if not _ then
+  local s, v = pcall(runfile, ...)
+  if not s then
 	printErr(err)
 	--printErr("\n" .. debug.traceback())
   end
-  return _
+  return v
 end
 function require(lib)
-	return _G[lib] or _G[string.lower(lib)]
+	return _G[lib] or _G[string.lower(lib)] or miniOS.runfile(lib .. ".lua")
 end
 
 miniOS.freeMem = computer.freeMemory()
@@ -1167,5 +1208,5 @@ while true do
 	miniOS.freeMem = computer.freeMemory()
 	print()
 	fs.drive.setcurrent(command_drive)
-	if not miniOS.runfile("command.lua", "-c") then kernelError() end
+	if not miniOS.runfile("command.lua", "-c") then printErr("\n\nError during shell! Will restart command.lua!") kernelError() end
 end
