@@ -13,7 +13,6 @@ io implementation
 batch files
 check for bad drives in command
 sanity check for drive letters in fs (see if they are A-Z)
-very basic require. (libaryies already stored)
 automatic clean up of unused drives
 run miniOS programs on openOS
 use coroutienes for interrupts
