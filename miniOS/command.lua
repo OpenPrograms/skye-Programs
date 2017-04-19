@@ -59,21 +59,21 @@ local function label(parts)
 end
 
 local function outputFile(file, paged)
-  local handle, reason = filesystem.open(file)
-  if not handle then
-    error(reason, 2)
-  end
-  local buffer = ""
-  repeat
-    local data, reason = filesystem.read(handle)
-    if not data and reason then
-      error(reason)
-    end
-    buffer = buffer .. (data or "")
-  until not data
-  filesystem.close(handle)
-  if paged then printPaged(buffer)
-  else print(buffer) end
+	local handle, reason = filesystem.open(file)
+	if not handle then
+		error(reason, 2)
+	end
+	local buffer = ""
+	repeat
+		local data, reason = filesystem.read(handle)
+		if not data and reason then
+			error(reason)
+		end
+		buffer = buffer .. (data or "")
+	until not data
+	filesystem.close(handle)
+	if paged then printPaged(buffer)
+	else print(buffer) end
 end
 
 local function dir(folder)
@@ -95,9 +95,9 @@ local function moveFile(from, to, force)
 	checkArg(1, from, "string")
 	checkArg(2, to, "string")
 	if fs.isDirectory(to) then
-	    if not fs.name then error("Need to specify name for destination!", 0) end
+			if not fs.name then error("Need to specify name for destination!", 0) end
 		to = to .. "/" .. fs.name(from)
-    end
+		end
 	if fs.exists(to) then
 		if not force then
 			printErr("target file exists")
@@ -115,9 +115,9 @@ local function copyFile(from, to, force)
 	checkArg(1, from, "string")
 	checkArg(2, to, "string")
 	if fs.isDirectory(to) then
-	    if not fs.name then error("Need to specify name for destination!", 0) end
+			if not fs.name then error("Need to specify name for destination!", 0) end
 		to = to .. "/" .. fs.name(from)
-    end
+		end
 	if fs.exists(to) then
 		if not force then
 			printErr("target file exists")
@@ -163,7 +163,7 @@ local function runline(line)
 			runprog(command, parts) return true
 		end
 	end
-	if filesystem.exists(command .. ".lua")  then
+	if filesystem.exists(command .. ".lua")	then
 		if not filesystem.isDirectory(command .. ".lua") then
 			runprog(command .. ".lua", parts)
 			return true
