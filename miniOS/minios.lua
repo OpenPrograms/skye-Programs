@@ -1,5 +1,5 @@
 _G._OSNAME = "miniOS"
-_G._OSVER = "0.6"
+_G._OSVER = "0.6.1"
 _G._OSVERSION = _OSNAME .. " " .. _OSVER
 
 --component code
@@ -507,9 +507,9 @@ function fs_code()
   function fs.drive.drivepathSplit(mixed)
     local drive = fs.drive._current
     local path
-    if mixed:sub(2,2) == ":" then
-      drive = mixed:sub(1,1):upper()
-      path = mixed:sub(3)
+    if string.sub(mixed, 2,2) == ":" then
+      drive = string.sub(mixed, 1,1):upper()
+      path = string.sub(mixed, 3)
     else
       path = mixed
     end
@@ -1100,7 +1100,6 @@ function printPaged(...)
       end
     end
   end
-
 end
 --load programs
 function loadfile(file, mode, env)
@@ -1168,6 +1167,7 @@ miniOS = {}
 local function interrupt(data)
   --print("INTERRUPT!")
   if data[2] == "RUN" then return miniOS.runfile(data[3], table.unpack(data[4])) end
+  if data[3] == "ERR" then error("This error is for testing!") end
 end
 local function runfile(file, ...)
   local program, reason = loadfile(file)
@@ -1176,7 +1176,15 @@ local function runfile(file, ...)
     if result[1] then
       return table.unpack(result, 2, result.n)
     else
-	  if type(result[2]) == "table" then if result[2][1] then if result[2][1] == "INTERRUPT" then interrupt(result[2]) return true end end end
+	  if type(result[2]) == "table" then if result[2][1] then if result[2][1] == "INTERRUPT" then
+	    result = {interrupt(result[2])}
+		--if not result[1] then
+		  --error(result[2], 3)
+		--else
+		  --return table.unpack(result, 2, result.n)
+		--end
+		return
+	  end end end
       error(result[2], 3)
     end
   else
@@ -1187,26 +1195,52 @@ local function kernelError()
   printErr("\nPress any key to try again.")
   term.readKey()
 end
-function miniOS.runfile(...)
-  local s, v = pcall(runfile, ...)
-  if not s then
-	printErr(err)
-	--printErr("\n" .. debug.traceback())
+function miniOS.saferunfile(...)
+  local r = {pcall(runfile, ...)}
+  if not r[1] then
+	printErr(r[2])
+	local c = component.gpu.getForeground()
+	component.gpu.setForeground(0xFF0000)
+	printPaged(debug.traceback())
+	component.gpu.setForeground(c)
   end
-  return v
+  return r
+end
+function miniOS.runfile(...)
+ local r = miniOS.saferunfile(...)
+ return table.unpack(r, 2, r.n)
+end
+
+local function tryrunlib(lib)
+	local ret
+	local opt = {lib .. ".lua", lib}
+	for _,o in ipairs(opt) do
+		if fs.exists(o) then
+			return miniOS.runfile(o)
+		end
+	end
+	error("Can't find the library specified: `" .. lib .. "`", 3)
 end
 function require(lib)
-	return _G[lib] or _G[string.lower(lib)] or miniOS.runfile(lib .. ".lua")
+	return _G[lib] or _G[string.lower(lib)] or tryrunlib(lib)
+end
+local function shellrun(...)
+	local success = miniOS.saferunfile(...)[1]
+	if not success then
+		printErr("\n\nError in running command interpreter.")
+		return false
+	end
+	return true
 end
 
 miniOS.freeMem = computer.freeMemory()
 
 --start command and keep it running.
-local command_drive = fs.drive.getcurrent()
-if filesystem.exists("autoexec.bat") then miniOS.runfile("command.lua", "autoexec.bat") else miniOS.runfile("command.lua") end
+local fallback_drive = fs.drive.getcurrent()
+if filesystem.exists("autoexec.bat") then shellrun("command.lua", "autoexec.bat") else shellrun("command.lua") end
 while true do
 	miniOS.freeMem = computer.freeMemory()
 	print()
-	fs.drive.setcurrent(command_drive)
-	if not miniOS.runfile("command.lua", "-c") then printErr("\n\nError during shell! Will restart command.lua!") kernelError() end
+	fs.drive.setcurrent(fallback_drive)
+	if not shellrun("command.lua", "-c") then printErr("Will restart command interpreter..."); kernelError() end
 end
