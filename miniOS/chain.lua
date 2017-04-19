@@ -38,6 +38,11 @@ miniOS will probably be broken.]])
   return
 end
 
+if not filesystem.exists(td .. ":" .. tf) then
+  printErr("File to chainload `" .. td .. ":" .. tf .. "` does not exist!")
+  return
+end
+
 term.clear()
 error({[1]="INTERRUPT", [2]="RUN", [3]=(td .. ":" .. tf), [4]=targs or {}})
 
