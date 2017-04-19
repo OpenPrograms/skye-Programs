@@ -1,5 +1,5 @@
 _G._OSNAME = "miniOS"
-_G._OSVER = "0.6.1.2"
+_G._OSVER = "0.6.1.3"
 _G._OSVERSION = _OSNAME .. " " .. _OSVER
 
 --component code
@@ -14,7 +14,7 @@ local primaries = {}
 -- component.getPrimary("modem").open(123), which may be nicer to read.
 setmetatable(component, { __index = function(_, key)
                                       return component.getPrimary(key)
-                                    end })
+                                    end})
 
 function component.get(address, componentType)
   checkArg(1, address, "string")
@@ -542,7 +542,8 @@ function fs_code()
     local drive, handle, proxy
     drive, path = fs.drive.drivepathSplit(file)
 	proxy = fs.drive.letterToProxy(drive)
-    handle = proxy.open(path, mode or 'r')
+    handle, reason = proxy.open(path, mode or 'r')
+	if not handle then return nil, reason end
     return {_handle = handle, _proxy = proxy}
   end
   function fs.write(handle, data) return handle._proxy.write(handle._handle, data) end
@@ -651,8 +652,16 @@ function terminal_code()
   local term = {}
   local cursorX, cursorY = 1, 1
   local cursorBlink = nil
-  
+  --- quick and dirty hacks that allow newer programs to run while not actually writing new code
   term.gpu = function() return component.gpu end
+  term.getViewport = function() return 0, 0, component.gpu.getResolution() end
+  term.getGlobalArea = function(ignored)
+    local w,h,dx,dy = term.getViewport(window)
+    return dx+1,dy+1,w,h
+  end
+  term.pull = event.pull
+  term.keyboard = function() return component.keyboard end
+  term.screen = function() return term.gpu().getScreen() end
   
   local function toggleBlink()
     if term.isAvailable() then
