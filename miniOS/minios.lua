@@ -1,5 +1,5 @@
 _G._OSNAME = "miniOS"
-_G._OSVER = "0.6.1"
+_G._OSVER = "0.6.1.1"
 _G._OSVERSION = _OSNAME .. " " .. _OSVER
 
 --component code
@@ -616,6 +616,13 @@ function fs_code()
 	  return nil
 	end
   end
+  function fs.get(path)
+    local drive
+	drive, path = fs.drive.drivepathSplit(path)
+	drive = fs.drive.letterToProxy(drive)
+	if not drive then return nil, "no such file system"
+	else return drive, path end
+  end
   
   --handle inserted and removed filesystems
   local function onComponentAdded(_, address, componentType)
@@ -644,6 +651,8 @@ function terminal_code()
   local term = {}
   local cursorX, cursorY = 1, 1
   local cursorBlink = nil
+  
+  term.gpu = function() return component.gpu end
   
   local function toggleBlink()
     if term.isAvailable() then
@@ -1201,7 +1210,7 @@ function miniOS.saferunfile(...)
 	printErr(r[2])
 	local c = component.gpu.getForeground()
 	component.gpu.setForeground(0xFF0000)
-	printPaged(debug.traceback())
+	printPaged(r[3])
 	component.gpu.setForeground(c)
   end
   return r
