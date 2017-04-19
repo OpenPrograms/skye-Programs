@@ -1,5 +1,5 @@
 _G._OSNAME = "miniOS"
-_G._OSVER = "0.6.1.1"
+_G._OSVER = "0.6.1.2"
 _G._OSVERSION = _OSNAME .. " " .. _OSVER
 
 --component code
@@ -1181,7 +1181,36 @@ end
 local function runfile(file, ...)
   local program, reason = loadfile(file)
   if program then
-    local result = table.pack(pcall(program, ...))
+    local targs = {...}
+	local traceback
+    local result = table.pack(xpcall(program,
+	  function(err) traceback = debug.traceback(nil, 2); return err end,
+	  ...))
+	--local result = table.pack(pcall(program, ...))
+	if traceback then
+		local function dropsame(s1,s2)
+			t1,t2={},{}
+			for l in s1:gmatch("(.-)\n") do t1[#t1+1] = l end
+			for l in s2:gmatch("(.-)\n") do t2[#t2+1] = l end
+			for i = #t1,1,-1 do
+				if t1[i] == t2[i] then
+					t1[i] = nil
+					t2[i] = nil
+				else
+					break
+				end
+			end
+			os1,os2 = "",""
+			for k,v in ipairs(t1) do
+				os1 = os1 .. v .. "\n"
+			end
+			for k,v in ipairs(t2) do
+				os2 = os2 .. v .. "\n"
+			end
+			return os1,os2
+		end
+	  traceback = dropsame(traceback, debug.traceback(nil, 2)) .. "\t..."
+	end
     if result[1] then
       return table.unpack(result, 2, result.n)
     else
@@ -1194,7 +1223,7 @@ local function runfile(file, ...)
 		--end
 		return
 	  end end end
-      error(result[2], 3)
+      error(result[2] .. "\n" .. traceback, 3)
     end
   else
     error(reason, 3)
@@ -1207,10 +1236,9 @@ end
 function miniOS.saferunfile(...)
   local r = {pcall(runfile, ...)}
   if not r[1] then
-	printErr(r[2])
 	local c = component.gpu.getForeground()
 	component.gpu.setForeground(0xFF0000)
-	printPaged(r[3])
+	printPaged(r[2])
 	component.gpu.setForeground(c)
   end
   return r
