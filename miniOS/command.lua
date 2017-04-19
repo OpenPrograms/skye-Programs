@@ -95,9 +95,9 @@ local function moveFile(from, to, force)
 	checkArg(1, from, "string")
 	checkArg(2, to, "string")
 	if fs.isDirectory(to) then
-			if not fs.name then error("Need to specify name for destination!", 0) end
+		if not fs.name then error("Need to specify name for destination!", 0) end
 		to = to .. "/" .. fs.name(from)
-		end
+	end
 	if fs.exists(to) then
 		if not force then
 			printErr("target file exists")
@@ -115,9 +115,9 @@ local function copyFile(from, to, force)
 	checkArg(1, from, "string")
 	checkArg(2, to, "string")
 	if fs.isDirectory(to) then
-			if not fs.name then error("Need to specify name for destination!", 0) end
+		if not fs.name then error("Need to specify name for destination!", 0) end
 		to = to .. "/" .. fs.name(from)
-		end
+	end
 	if fs.exists(to) then
 		if not force then
 			printErr("target file exists")
@@ -163,7 +163,7 @@ local function runline(line)
 			runprog(command, parts) return true
 		end
 	end
-	if filesystem.exists(command .. ".lua")	then
+	if filesystem.exists(command .. ".lua") then
 		if not filesystem.isDirectory(command .. ".lua") then
 			runprog(command .. ".lua", parts)
 			return true
