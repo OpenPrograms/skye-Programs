@@ -1171,6 +1171,10 @@ os.sleep = function(timeout)
   until computer.uptime() >= deadline
 end
 
+os.exit = function(code)
+  error({[1]="INTERRUPT", [2]="EXIT", [3]=code})
+end
+
 --set up terminal
 if term.isAvailable() then
   component.gpu.bind(component.screen.address)
@@ -1195,7 +1199,8 @@ miniOS = {}
 local function interrupt(data)
   --print("INTERRUPT!")
   if data[2] == "RUN" then return miniOS.runfile(data[3], table.unpack(data[4])) end
-  if data[3] == "ERR" then error("This error is for testing!") end
+  if data[2] == "ERR" then error("This error is for testing!") end
+  if data[2] == "EXIT" then return data[3] end
 end
 local function runfile(file, ...)
   local program, reason = loadfile(file)
