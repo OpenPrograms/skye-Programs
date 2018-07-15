@@ -1161,6 +1161,16 @@ filesystem = fs_code()
 fs = filesystem
 keyboard = dofile("keyboard.lua")
 term = terminal_code()
+
+-- set up other libraries...
+os.sleep = function(timeout)
+  checkArg(1, timeout, "number", "nil")
+  local deadline = computer.uptime() + (timeout or 0)
+  repeat
+    event.pull(deadline - computer.uptime())
+  until computer.uptime() >= deadline
+end
+
 --set up terminal
 if term.isAvailable() then
   component.gpu.bind(component.screen.address)
