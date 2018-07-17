@@ -1141,6 +1141,8 @@ function keyboard_code(keyboard_data)
   event.listen("key_up", onKeyUp)
   event.listen("component_added", onComponentAdded)
   event.listen("component_removed", onComponentRemoved)
+  
+  return keyboard
 end
 
 local function printProcess(...)
