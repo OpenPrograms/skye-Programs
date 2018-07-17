@@ -1,5 +1,5 @@
 _G._OSNAME = "miniOS"
-_G._OSVER = "0.6.1.3"
+_G._OSVER = "0.6.1.4"
 _G._OSVERSION = _OSNAME .. " " .. _OSVER
 
 --component code
