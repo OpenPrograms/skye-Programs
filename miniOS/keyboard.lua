@@ -1,4 +1,4 @@
-local keyboard = {pressedChars = {}, pressedCodes = {}}
+local keyboard = {}
 
 keyboard.keys = {
   ["1"]           = 0x02,
@@ -129,45 +129,5 @@ keyboard.keys = {
   numpadenter     = 0x9C,
   numpadequals    = 0x8D,
 }
-
--- Create inverse mapping for name lookup.
-do
-  local keys = {}
-  for k in pairs(keyboard.keys) do
-    table.insert(keys, k)
-  end
-  for _, k in pairs(keys) do
-    keyboard.keys[keyboard.keys[k]] = k
-  end
-end
-
--------------------------------------------------------------------------------
-
-function keyboard.isAltDown()
-  return (keyboard.pressedCodes[keyboard.keys.lmenu] or keyboard.pressedCodes[keyboard.keys.rmenu]) ~= nil
-end
-
-function keyboard.isControl(char)
-  return type(char) == "number" and (char < 0x20 or (char >= 0x7F and char <= 0x9F))
-end
-
-function keyboard.isControlDown()
-  return (keyboard.pressedCodes[keyboard.keys.lcontrol] or keyboard.pressedCodes[keyboard.keys.rcontrol]) ~= nil
-end
-
-function keyboard.isKeyDown(charOrCode)
-  checkArg(1, charOrCode, "string", "number")
-  if type(charOrCode) == "string" then
-    return keyboard.pressedChars[charOrCode]
-  elseif type(charOrCode) == "number" then
-    return keyboard.pressedCodes[charOrCode]
-  end
-end
-
-function keyboard.isShiftDown()
-  return (keyboard.pressedCodes[keyboard.keys.lshift] or keyboard.pressedCodes[keyboard.keys.rshift]) ~= nil
-end
-
--------------------------------------------------------------------------------
 
 return keyboard

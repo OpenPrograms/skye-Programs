@@ -1,6 +1,7 @@
 _G._OSNAME = "miniOS"
-_G._OSVER = "0.6.1.4"
+_G._OSVER = "0.6.1.5"
 _G._OSVERSION = _OSNAME .. " " .. _OSVER
+_G._OSCREDIT = "miniOS by Skye, based off of OpenOS code from OpenComputers.\nminiOS code is under BSD 2-clause license, OpenOS code is under the MIT liecence."
 
 --component code
 function component_code()
@@ -1040,7 +1041,70 @@ function terminal_code()
   
   return term
 end
-function keyboard_init()
+
+function keyboard_code(keyboard_data)
+  local keyboard = {pressedChars = {}, pressedCodes = {}, keys = keyboard_data.keys}
+  
+  -- Create inverse mapping for name lookup.
+  setmetatable(keyboard.keys, {
+    __index = function(tbl, k)
+      if type(k) ~= "number" then return end
+      for name,value in pairs(tbl) do
+        if value == k then
+          return name
+        end
+      end
+    end
+  })
+  
+  local function getKeyboardAddress(address)
+    return address or term.keyboard.address
+  end
+
+  local function getPressedCodes(address)
+    address = getKeyboardAddress(address)
+    return address and keyboard.pressedCodes[address] or false
+  end
+
+  local function getPressedChars(address)
+    address = getKeyboardAddress(address)
+    return address and keyboard.pressedChars[address] or false
+  end
+
+  function keyboard.isAltDown(address)
+    checkArg(1, address, "string", "nil")
+    local pressedCodes = getPressedCodes(address)
+    return pressedCodes and (pressedCodes[keyboard.keys.lmenu] or pressedCodes[keyboard.keys.rmenu]) ~= nil
+  end
+
+  function keyboard.isControl(char)
+    return type(char) == "number" and (char < 0x20 or (char >= 0x7F and char <= 0x9F))
+  end
+
+  function keyboard.isControlDown(address)
+    checkArg(1, address, "string", "nil")
+    local pressedCodes = getPressedCodes(address)
+    return pressedCodes and (pressedCodes[keyboard.keys.lcontrol] or pressedCodes[keyboard.keys.rcontrol]) ~= nil
+  end
+
+  function keyboard.isKeyDown(charOrCode, address)
+    checkArg(1, charOrCode, "string", "number")
+    checkArg(2, address, "string", "nil")
+    if type(charOrCode) == "string" then
+      local pressedChars = getPressedChars(address)
+      return pressedChars and pressedChars[utf8 and utf8.codepoint(charOrCode) or charOrCode:byte()]
+    elseif type(charOrCode) == "number" then
+      local pressedCodes = getPressedCodes(address)
+      return pressedCodes and pressedCodes[charOrCode]
+    end
+  end
+
+  function keyboard.isShiftDown(address)
+    checkArg(1, address, "string", "nil")
+    local pressedCodes = getPressedCodes(address)
+    return pressedCodes and (pressedCodes[keyboard.keys.lshift] or pressedCodes[keyboard.keys.rshift]) ~= nil
+  end
+  
   local function onKeyDown(_, address, char, code)
     if keyboard.pressedChars[address] then
       keyboard.pressedChars[address][char] = true
@@ -1198,8 +1262,7 @@ component_code()
 text = text_code()
 filesystem = fs_code()
 fs = filesystem
-keyboard = dofile("keyboard.lua")
-keyboard_init()
+keyboard = keyboard_code(dofile("keyboard.lua"))
 term = terminal_code()
 
 -- set up other functions...
@@ -1226,9 +1289,10 @@ if term.isAvailable() then
 end
 
 print("Starting " .. _OSNAME .. "...\n")
+print(__OSCREDIT)
 
 --clean up libs
-event_code, component_code, text_code, fs_code, terminal_code, keyboard_init = nil, nil, nil, nil, nil, nil
+event_code, component_code, text_code, fs_code, terminal_code, keyboard_code = nil, nil, nil, nil, nil, nil
 
 --map the drives
 for address, componentType in component.list() do 
