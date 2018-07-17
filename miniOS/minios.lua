@@ -1291,7 +1291,7 @@ if term.isAvailable() then
 end
 
 print("Starting " .. _OSNAME .. "...\n")
-print(__OSCREDIT)
+print(_OSCREDIT .. "\n")
 
 --clean up libs
 event_code, component_code, text_code, fs_code, terminal_code, keyboard_code = nil, nil, nil, nil, nil, nil
