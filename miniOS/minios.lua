@@ -1058,7 +1058,7 @@ function keyboard_code(keyboard_data)
   })
   
   local function getKeyboardAddress(address)
-    return address or term.keyboard.address
+    return address or term.keyboard().address
   end
 
   local function getPressedCodes(address)
