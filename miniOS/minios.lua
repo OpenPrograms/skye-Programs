@@ -1228,7 +1228,7 @@ end
 print("Starting " .. _OSNAME .. "...\n")
 
 --clean up libs
-event_code, component_code, text_code, fs_code, terminal_code = nil, nil, nil, nil, nil
+event_code, component_code, text_code, fs_code, terminal_code, keyboard_init = nil, nil, nil, nil, nil, nil
 
 --map the drives
 for address, componentType in component.list() do 
