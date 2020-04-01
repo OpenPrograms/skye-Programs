@@ -47,4 +47,4 @@ local function dofile(file)
     error(reason, 3)
   end
 end
-dofile("minios.lua")
+dofile("miniOS.lua")

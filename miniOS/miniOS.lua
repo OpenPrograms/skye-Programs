@@ -1,7 +1,7 @@
-_G._OSNAME = "miniOS"
-_G._OSVER = "0.6.1.5"
+_G._OSNAME = "miniOS classic"
+_G._OSVER = "0.6.2"
 _G._OSVERSION = _OSNAME .. " " .. _OSVER
-_G._OSCREDIT = "miniOS by Skye, based off of OpenOS code from OpenComputers.\nminiOS code is under BSD 2-clause license, OpenOS code is under the MIT liecence."
+_G._OSCREDIT = "miniOS classic by Skye, based off of OpenOS code from OpenComputers.\nminiOS code is under BSD 2-clause license, OpenOS code is under the MIT liecence."
 
 --component code
 function component_code()
@@ -345,10 +345,10 @@ function event_code()
   end
   
   function event.onError(message)
-    local log = io.open("/tmp/event.log", "a")
+    local log = fs.open("/tmp/event.log", "a")
     if log then
-      log:write(message .. "\n")
-      log:close()
+      fs.write(log, message .. "\n")
+      fs.close(log)
     end
   end
   
@@ -1315,7 +1315,9 @@ local function runfile(file, ...)
 	local traceback
     local result = table.pack(xpcall(program,
 	  function(err) traceback = debug.traceback(nil, 2); return err end,
-	  ...))
+    ...))
+  os.sleep(0)
+  --computer.beep()
 	--local result = table.pack(pcall(program, ...))
 	if traceback then
 		local function dropsame(s1,s2)
@@ -1393,8 +1395,8 @@ function require(lib)
 end
 local function shellrun(...)
 	local success = miniOS.saferunfile(...)[1]
-	if not success then
-		printErr("\n\nError in running command interpreter.")
+  if not success then
+    printErr("\n\nError in running command interpreter.")
 		return false
 	end
 	return true
@@ -1404,10 +1406,14 @@ miniOS.freeMem = computer.freeMemory()
 
 --start command and keep it running.
 local fallback_drive = fs.drive.getcurrent()
-if filesystem.exists("autoexec.bat") then shellrun("command.lua", "autoexec.bat") else shellrun("command.lua") end
+if filesystem.exists("autoexec.bat") then shellrun("command.lua", "-c", "autoexec.bat") else shellrun("command.lua") end
 while true do
-	miniOS.freeMem = computer.freeMemory()
-	print()
-	fs.drive.setcurrent(fallback_drive)
-	if not shellrun("command.lua", "-c") then printErr("Will restart command interpreter..."); kernelError() end
+  miniOS.freeMem = computer.freeMemory()
+	if not miniOS.cmdBat then print() end
+  fs.drive.setcurrent(fallback_drive)
+  local new = false;
+  --print(new)
+  if not shellrun("command.lua", (not new and "-c") or nil) then new = true; printErr("Will restart command interpreter..."); kernelError(); end
+  --print("uh")
+  --os.sleep(1)
 end

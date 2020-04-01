@@ -1,6 +1,5 @@
 Use fixPath with dir
 pastebin port
-basic directory support
 resolution+other screen control command
 fix readkey echo
 advanced directory&path support. (paths like MS-DOS. with "/" and "\") (with unix option!) make fixPath resolve paths using fs.resolve
@@ -10,7 +9,6 @@ os library
 Environment variables (remember path!)
 tape drive?
 io implementation
-batch files
 check for bad drives in command
 sanity check for drive letters in fs (see if they are A-Z)
 automatic clean up of unused drives

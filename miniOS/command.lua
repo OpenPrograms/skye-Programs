@@ -6,7 +6,8 @@ local shell = {}
 
 local tArgs={...}
 local continue
-if tArgs[1] == "-c" then continue = true table.remove(tArgs, 1) end
+if tArgs[1] == "-c" then continue = true table.remove(tArgs, 1)
+else miniOS.cmdBat = nil end
 
 local function intro() print(_OSVERSION .. " [".. math.floor(computer.totalMemory()/1024).."k RAM, around "..math.floor(miniOS.freeMem/1024).."k Free]" .."\nCommand Interpreter By Skye M.\n") end 
 if not continue then intro() end
@@ -29,7 +30,23 @@ local function runprog(file, parts)
 end
 
 local function runbat(file, parts)
-	error("Not yet Implemented!")
+	if not miniOS.cmdBat then miniOS.cmdBat = {} end
+	local lines = {}
+	local line = ""
+	local handle = fs.open(file)
+	repeat
+		local char = fs.read(handle, 1)
+		if (char == "\n" or char == nil) then
+			lines[#lines+1] = line
+			if char == nil then line = nil end
+			if char == "\n" then line = "" end
+		else line = line .. char end
+	until line == nil
+	fs.close(handle)
+
+	--for _,l in ipairs(lines) do print(l) end
+	miniOS.cmdBat[#miniOS.cmdBat + 1] = lines
+	os.exit(0)
 end
 
 local function listdrives()
@@ -145,6 +162,9 @@ local function twoFileCommandHelper(run, parts)
 end
 
 local function runline(line)
+	--computer.beep()
+	checkArg(1, line, "string")
+	--print(line)
 	line = text.trim(line)
 	if line == "" then return true end
 	parts = text.tokenize(line)
@@ -234,10 +254,30 @@ end
 if shell.runline(table.concat(tArgs, " ")) == "exit" then return end
 
 while true do
-	term.write(filesystem.drive.getcurrent() ..">")
-	local line = term.read(history)
-	while #history > 10 do
-		table.remove(history, 1)
+	if miniOS.cmdBat and #miniOS.cmdBat == 0 then
+		miniOS.cmdBat = nil
+	end
+
+	local line
+	if miniOS.cmdBat then
+		while #miniOS.cmdBat > 0 do
+			repeat
+				line = miniOS.cmdBat[#miniOS.cmdBat][1]
+				if line == nil then
+					miniOS.cmdBat[#miniOS.cmdBat] = nil
+					line = ""
+				else
+					table.remove(miniOS.cmdBat[#miniOS.cmdBat], 1)
+				end
+			until line ~= "" or #miniOS.cmdBat <= 0
+			if line ~= "" then break end
+		end
+	else
+		term.write(filesystem.drive.getcurrent() ..">")
+		line = term.read(history)
+		while #history > 10 do
+			table.remove(history, 1)
+		end
 	end
 	if shell.runline(line) == "exit" then return true end
 end
