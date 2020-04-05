@@ -55,7 +55,7 @@ local function listdrives()
 	end
 end
 
-local function lables()
+local function labels()
 	for letter, address in fs.drive.list() do
 		print(letter, component.invoke(address, "getLabel") or "")
 	end
@@ -205,7 +205,8 @@ local function runline(line)
 	if command == "disks" then listdrives() return true end
 	if command == "discs" then listdrives() return true end
 	if command == "drives" then listdrives() return true end
-	if command == "labels" then lables() return true end
+	if command == "labels" then labels() return true end
+	if command == "scndrv" then filesystem.drive.scan() return true end
 	if command == "label" then if parts[2] then label(parts) return true else printErr("Invalid Parameters") return false end end
 	if command == "type" then outputFile(fixPath(parts[2])) return true end
 	if command == "more" then outputFile(fixPath(parts[2]), true) return true end
@@ -228,6 +229,7 @@ cmds --- Lists the commands.
 intro -- Outputs the introduction message.
 drives - Lists the drives and their addresses.
 labels - Lists the drives and their labels.
+scndrv - Updates the drive list.
 label -- Sets the label of a drive.
 echo --- Outputs its arguments.
 type --- Like echo, but outputs a file.

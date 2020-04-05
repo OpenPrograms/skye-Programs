@@ -1,7 +1,7 @@
 _G._OSNAME = "miniOS classic"
-_G._OSVER = "0.6.2-pre.1"
+_G._OSVER = "0.6.2"
 _G._OSVERSION = _OSNAME .. " " .. _OSVER
-_G._OSCREDIT = "miniOS classic by Skye, based off of OpenOS code from OpenComputers.\nminiOS code is under BSD 2-clause license, OpenOS code is under the MIT license."
+_G._OSCREDIT = "miniOS classic by Skye, based off of OpenOS code from OpenComputers.\nminiOS code is under BSD 2-clause licence, OpenOS code is under the MIT licence."
 
 --component code
 function component_code()
@@ -432,14 +432,14 @@ function fs_code()
   fs.drive._map = {}
   --converts a drive letter into a proxy
   function fs.drive.letterToProxy(letter)
-	return fs.drive._map[letter]
+	  return fs.drive._map[letter]
   end
   --finds the proxy associated with the letter
   function fs.drive.proxyToLetter(proxy)
     for l,p in pairs(fs.drive._map) do
-	  if p == proxy then return l end
-	end
-	return nil
+	    if p == proxy then return l end
+	  end
+	  return nil
   end
   --maps a proxy to a letter
   function fs.drive.mapProxy(letter, proxy)
@@ -457,8 +457,9 @@ function fs_code()
 	return nil
   end
   function fs.drive.mapAddress(letter, address)
-	--print("mapAddress")
-    fs.drive._map[letter] = fs.proxy(address)
+  --print("mapAddress")
+    if address == nil then fs.drive._map[letter] = nil
+    else fs.drive._map[letter] = fs.proxy(address) end
   end
   function fs.drive.autoMap(address) --returns the letter if mapped OR already mapped, false if not.
 	--print("autoMap")
@@ -517,6 +518,20 @@ function fs_code()
 	return drive, path
   end
   function fs.drive.getcurrent() return fs.drive._current end
+  function fs.drive.scan()
+    local to_remove = {}
+    for letter,proxy in pairs(fs.drive._map) do
+      if component.type(proxy.address) == nil then
+        to_remove[#to_remove + 1] = letter
+      end
+    end
+    for _,l in ipairs(to_remove) do
+      fs.drive._map[l] = nil
+    end
+    for address, componentType in component.list() do 
+      if componentType == "filesystem" then filesystem.drive.autoMap(address) end
+    end
+  end
   function fs.invoke(method, ...) return fs.drive._map[fs.drive._current][method](...) end
   function fs.proxy(filter)
     checkArg(1, filter, "string")
@@ -1296,10 +1311,7 @@ print(_OSCREDIT .. "\n")
 --clean up libs
 event_code, component_code, text_code, fs_code, terminal_code, keyboard_code = nil, nil, nil, nil, nil, nil
 
---map the drives
-for address, componentType in component.list() do 
-  if componentType == "filesystem" then filesystem.drive.autoMap(address) end
-end
+filesystem.drive.scan()
 
 miniOS = {}
 local function interrupt(data)
@@ -1412,8 +1424,5 @@ while true do
 	if not miniOS.cmdBat then print() end
   fs.drive.setcurrent(fallback_drive)
   local new = false;
-  --print(new)
   if not shellrun("command.lua", (not new and "-c") or nil) then new = true; printErr("Will restart command interpreter..."); kernelError(); end
-  --print("uh")
-  --os.sleep(1)
 end
