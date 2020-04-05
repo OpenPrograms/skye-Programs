@@ -1,7 +1,7 @@
 _G._OSNAME = "miniOS classic"
 _G._OSVER = "0.6.2"
 _G._OSVERSION = _OSNAME .. " " .. _OSVER
-_G._OSCREDIT = "miniOS classic by Skye, based off of OpenOS code from OpenComputers.\nminiOS code is under BSD 2-clause license, OpenOS code is under the MIT liecence."
+_G._OSCREDIT = "miniOS classic by Skye, based off of OpenOS code from OpenComputers.\nminiOS code is under BSD 2-clause license, OpenOS code is under the MIT license."
 
 --component code
 function component_code()
