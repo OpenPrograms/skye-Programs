@@ -1,5 +1,5 @@
 _G._OSNAME = "miniOS classic"
-_G._OSVER = "0.6.2"
+_G._OSVER = "0.6.4"
 _G._OSVERSION = _OSNAME .. " " .. _OSVER
 _G._OSCREDIT = "miniOS classic by Skye, based off of OpenOS code from OpenComputers.\nminiOS code is under BSD 2-clause licence, OpenOS code is under the MIT licence."
 
@@ -560,7 +560,7 @@ function fs_code()
 	proxy = fs.drive.letterToProxy(drive)
     handle, reason = proxy.open(path, mode or 'r')
 	if not handle then return nil, reason end
-    return {_handle = handle, _proxy = proxy}
+    return setmetatable({_handle = handle, _proxy = proxy}, {__index = fs})
   end
   function fs.write(handle, data) return handle._proxy.write(handle._handle, data) end
   function fs.read(handle, length) return handle._proxy.read(handle._handle, length or math.huge) end
@@ -670,21 +670,24 @@ function terminal_code()
   local cursorBlink = nil
   --- quick and dirty hacks that allow newer programs to run while not actually writing new code
   term.gpu = function() return component.gpu end
-  term.getViewport = function() return 0, 0, component.gpu.getResolution() end
+  term.getViewport = function()
+    local w, h = component.gpu.getResolution()
+    return w, h, 0, 0, 1, cursorY
+  end
   term.getGlobalArea = function(ignored)
-    local w,h,dx,dy = term.getViewport(window)
+    local w,h,dx,dy,rx,ry = term.getViewport(window)
     return dx+1,dy+1,w,h
   end
   term.pull = event.pull
-  term.keyboard = function() return component.keyboard end
-  term.screen = function() return term.gpu().getScreen() end
+  term.keyboard = function() return component.keyboard.address end
+  term.screen = function() return term.gpu().getScreen().address end
   
   local function toggleBlink()
     if term.isAvailable() then
       cursorBlink.state = not cursorBlink.state
       if cursorBlink.state then
         cursorBlink.alt = component.gpu.get(cursorX, cursorY)
-        component.gpu.set(cursorX, cursorY, "_")
+        component.gpu.set(cursorX, cursorY, "▁")
       else
         component.gpu.set(cursorX, cursorY, cursorBlink.alt)
       end
@@ -1073,7 +1076,7 @@ function keyboard_code(keyboard_data)
   })
   
   local function getKeyboardAddress(address)
-    return address or term.keyboard().address
+    return address or term.keyboard()
   end
 
   local function getPressedCodes(address)
@@ -1329,8 +1332,6 @@ local function runfile(file, ...)
 	  function(err) traceback = debug.traceback(nil, 2); return err end,
     ...))
   os.sleep(0)
-  --computer.beep()
-	--local result = table.pack(pcall(program, ...))
 	if traceback then
 		local function dropsame(s1,s2)
 			t1,t2={},{}
@@ -1360,11 +1361,6 @@ local function runfile(file, ...)
     else
 	  if type(result[2]) == "table" then if result[2][1] then if result[2][1] == "INTERRUPT" then
 	    result = {interrupt(result[2])}
-		--if not result[1] then
-		  --error(result[2], 3)
-		--else
-		  --return table.unpack(result, 2, result.n)
-		--end
 		return
 	  end end end
       error(result[2] .. "\n" .. traceback, 3)

@@ -281,5 +281,8 @@ while true do
 			table.remove(history, 1)
 		end
 	end
-	if shell.runline(line) == "exit" then return true end
+	if shell.runline(line) == "exit" then
+		miniOS.cmdBat[#miniOS.cmdBat] = nil
+		return true
+	end
 end

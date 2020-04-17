@@ -1,6 +1,5 @@
 Use fixPath with dir
 pastebin port
-resolution+other screen control command
 fix readkey echo
 advanced directory&path support. (paths like MS-DOS. with "/" and "\") (with unix option!) make fixPath resolve paths using fs.resolve
 disk cloner + images (miniOS + openOS)
