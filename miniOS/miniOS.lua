@@ -1,5 +1,5 @@
 _G._OSNAME = "miniOS classic"
-_G._OSVER = "0.6.4"
+_G._OSVER = "0.6.4.3"
 _G._OSVERSION = _OSNAME .. " " .. _OSVER
 _G._OSCREDIT = "miniOS classic by Skye, based off of OpenOS code from OpenComputers.\nminiOS code is under BSD 2-clause licence, OpenOS code is under the MIT licence."
 
@@ -672,7 +672,7 @@ function terminal_code()
   term.gpu = function() return component.gpu end
   term.getViewport = function()
     local w, h = component.gpu.getResolution()
-    return w, h, 0, 0, 1, cursorY
+    return w, h, 0, 0, cursorX, cursorY
   end
   term.getGlobalArea = function(ignored)
     local w,h,dx,dy,rx,ry = term.getViewport(window)
@@ -680,7 +680,7 @@ function terminal_code()
   end
   term.pull = event.pull
   term.keyboard = function() return component.keyboard.address end
-  term.screen = function() return term.gpu().getScreen().address end
+  term.screen = function() return term.gpu().getScreen() end
   
   local function toggleBlink()
     if term.isAvailable() then

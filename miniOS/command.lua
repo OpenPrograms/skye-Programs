@@ -1,6 +1,6 @@
 -- command.lua, a very basic command interpreter for miniOS
 --are we in miniOS?
-if not miniOS then error("This program requires miniOS!") return end
+if not miniOS then error("This program requires miniOS!", 0) end
 
 local shell = {}
 
@@ -282,7 +282,7 @@ while true do
 		end
 	end
 	if shell.runline(line) == "exit" then
-		miniOS.cmdBat[#miniOS.cmdBat] = nil
+		if miniOS.cmdBat then miniOS.cmdBat[#miniOS.cmdBat] = nil end
 		return true
 	end
 end
