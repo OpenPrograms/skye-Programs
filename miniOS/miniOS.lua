@@ -1,5 +1,5 @@
 _G._OSNAME = "miniOS classic"
-_G._OSVER = "0.6.4.3"
+_G._OSVER = "0.6.5"
 _G._OSVERSION = _OSNAME .. " " .. _OSVER
 _G._OSCREDIT = "miniOS classic by Skye, based off of OpenOS code from OpenComputers.\nminiOS code is under BSD 2-clause licence, OpenOS code is under the MIT licence."
 
@@ -767,12 +767,15 @@ function terminal_code()
 	end
   end
   
-  function term.read(history, dobreak)
+  function term.read(history, dobreak, hint)
     checkArg(1, history, "table", "nil")
+    checkArg(3, hint, "table", "function", "nil")
     history = history or {}
     table.insert(history, "")
     local offset = term.getCursor() - 1
     local scrollX, scrollY = 0, #history - 1
+    
+    local hints = { handler = hint }
   
     local function getCursor()
       local cx, cy = term.getCursor()
@@ -783,7 +786,7 @@ function terminal_code()
       local cbx, cby = getCursor()
       return history[cby]
     end
-  
+    
     local function setCursor(nbx, nby)
       local w, h = component.gpu.getResolution()
       local cx, cy = term.getCursor()
@@ -830,6 +833,13 @@ function terminal_code()
       str = text.padRight(str, l)
       component.gpu.set(1 + offset, cy, str)
     end
+    
+    local function setline(to)
+      local cbx, cby = getCursor()
+      history[cby] = to
+      redraw()
+    end
+  
   
     local function home()
       local cbx, cby = getCursor()
@@ -911,8 +921,65 @@ function terminal_code()
       right(len)
     end
   
+    local function tab()
+      if not hints.handler then return end
+      local main_kb = term.keyboard()
+      -- term may not have a keyboard
+      -- in which case, we shouldn't be handling tab events
+      if not main_kb then
+        return
+      end
+      if not hints.cache then
+        local data = hints.handler
+        hints.handler = function(...)
+          if type(data) == "table" then
+            local args = {...}
+            local filtered = {}
+            for _,option in ipairs(data) do
+              if string.sub(option, 1, #args[1]) == args[1] then
+                filtered[#filtered + 1] = option
+                --print(option)
+              end
+            end
+            return filtered
+          else
+            return data(...) or {}
+          end
+        end
+        hints.cache = hints.handler(line(), #line() + 1)
+        hints.cache.i = -1
+      end
+    
+      local cache = hints.cache
+      local cache_size = #cache
+      
+      if cache_size == 1 and cache.i == 0 then
+        -- there was only one solution, and the user is asking for the next
+        hints.cache = hints.handler(cache[1], #line() + 1)
+        hints.cache.i = -1
+        cache = hints.cache
+        cache_size = #cache
+      end
+    
+      local change = keyboard.isShiftDown(main_kb) and -1 or 1
+      cache.i = (cache.i + change) % math.max(#cache, 1)
+      local next = cache[cache.i + 1]
+      if next then
+        local tail = unicode.len(line()) - #line()
+        setline(next)
+        local cbx, cby = getCursor()
+        setCursor(cbx + #line(), cby)
+      end
+    end
+  
     local function onKeyDown(char, code)
       term.setCursorBlink(false)
+      
+      if code == keyboard.keys.tab then
+        tab()
+      else
+        hints.cache = nil
+      end
       if code == keyboard.keys.back then
         if left() then delete() end
       elseif code == keyboard.keys.delete then

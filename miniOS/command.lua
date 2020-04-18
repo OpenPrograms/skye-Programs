@@ -162,8 +162,7 @@ local function twoFileCommandHelper(run, parts)
 end
 
 local function runline(line)
-	--computer.beep()
-	checkArg(1, line, "string")
+	checkArg(1, line, "string", "nil")
 	--print(line)
 	line = text.trim(line)
 	if line == "" then return true end
@@ -174,27 +173,7 @@ local function runline(line)
 	if command == nil then return true end
 	--drive selector
 	if #command == 2 then if string.sub(command, 2, 2) == ":" then filesystem.drive.setcurrent(string.sub(command, 1, 1)) return true end end
-	--external commands and programs
-	command = parts[1]
-	if filesystem.exists(command) then
-		if not filesystem.isDirectory(command) then
-			if text.endswith(command, ".lua") then runprog(command, parts) return true end
-			if text.endswith(command, ".bat") then runbat(command, parts) return true end
-			runprog(command, parts) return true
-		end
-	end
-	if filesystem.exists(command .. ".lua")  then
-		if not filesystem.isDirectory(command .. ".lua") then
-			runprog(command .. ".lua", parts)
-			return true
-		end
-	end
-	if filesystem.exists(command .. ".bat") then
-		if not filesystem.isDirectory(command .. ".bat") then
-			runbat(command .. ".bat", parts)
-			return true
-		end
-	end
+
 	--internal commands
 	if command == "exit" then history = {} return "exit" end
 	if command == "cls" then term.clear(); term.gpu().setForeground(0xFFFFFF); term.gpu().setBackground(0x000000) return true end
@@ -218,13 +197,14 @@ local function runline(line)
 	if command == "rename" then return twoFileCommandHelper(moveFile, parts) end
 	if command == "ren" then return twoFileCommandHelper(moveFile, parts) end
 	if command == "move" then return twoFileCommandHelper(moveFile, parts) end
+  if command == "mkdir" then return filesystem.makeDirectory(fixPath(parts[2])) end
 	if command == "cmds" then printPaged([[
 Internal Commands:
 exit --- Exit the command interpreter, Usually restarts it.
 cls ---- Clears the screen.
 ver ---- Outputs version information.
 mem ---- Outputs memory information.
-dir ---- Lists the files on the current disk.
+dir ---- Lists the files on the current disk or a path.
 cmds --- Lists the commands.
 intro -- Outputs the introduction message.
 drives - Lists the drives and their addresses.
@@ -238,7 +218,31 @@ touch -- Creates a file.
 del ---- Deletes a file.
 copy --- Copies a file.
 move --- Moves a file.
-ren ---- Renames a file.]]) print() return true end
+ren ---- Renames a file.
+mkdir -- Creates a directory.]]) printPaged() return true end
+
+  --external commands and programs
+	command = parts[1]
+	if filesystem.exists(command) then
+		if not filesystem.isDirectory(command) then
+			if text.endswith(command, ".lua") then runprog(command, parts) return true end
+			if text.endswith(command, ".bat") then runbat(command, parts) return true end
+			runprog(command, parts) return true
+		end
+	end
+	if filesystem.exists(command .. ".lua")  then
+		if not filesystem.isDirectory(command .. ".lua") then
+			runprog(command .. ".lua", parts)
+			return true
+		end
+	end
+	if filesystem.exists(command .. ".bat") then
+		if not filesystem.isDirectory(command .. ".bat") then
+			runbat(command .. ".bat", parts)
+			return true
+		end
+	end
+
 	print("'" .. parts[1] .. "' is not an internal or external command, program or batch file.")
 	return false
 end
@@ -254,6 +258,8 @@ function shell.runline(line)
 end
 
 if shell.runline(table.concat(tArgs, " ")) == "exit" then return end
+
+local cmds = {"exit", "cls", "ver", "mem", "dir ", "cmds", "intro", "drives", "labels", "echo ", "type ", "more ", "touch", "del ", "copy ", "move ", "ren ", "mkdir "}
 
 while true do
 	if miniOS.cmdBat and #miniOS.cmdBat == 0 then
@@ -276,7 +282,42 @@ while true do
 		end
 	else
 		term.write(filesystem.drive.getcurrent() ..">")
-		line = term.read(history)
+		line = term.read(history, nil, function(line, pos)
+      local filtered = {}
+      
+      local space = string.match(line, '^.*() ')
+      
+      if space == nil then
+        for _,option in ipairs(cmds) do
+          if string.sub(option, 1, #line) == line then
+            filtered[#filtered + 1] = option
+          end
+        end
+      end
+      
+      local preline
+      if space ~= nil then
+        preline = string.sub(line, 1, space)
+        line = string.sub(line, space + 1)
+      else
+        preline = ""
+      end
+      local path
+      local dirsep = string.match(line, '^.*()/')
+      if dirsep ~= nil then
+        path = string.sub(line, 1, dirsep)
+      else path = "" end
+      
+      for file in fs.list(path) do
+        file = path .. file
+        if string.sub(file, 1, #line) == line and string.sub(file, -1) == '/' then
+          filtered[#filtered + 1] = preline .. file
+        elseif string.sub(file, 1, #line) == line and (string.sub(file, -4) == '.lua' or string.sub(file, -4) == '.bat') then
+          filtered[#filtered + 1] = preline .. file .. ' '
+        end
+      end
+      return filtered
+    end)
 		while #history > 10 do
 			table.remove(history, 1)
 		end
